@@ -30,6 +30,7 @@ Follow these rules strictly.
 - If modifying code, explain **what changed and why**.
 - Never change unrelated code or formatting.
 - Do not add emojis. Keep it clean and professional.
+- Do not add any extraneous .md files explaining the changes.
 
 ## Testing
 
