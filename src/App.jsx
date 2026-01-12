@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './views/Dashboard';
+import Analysis from './views/Analysis';
 import './App.css';
 
 function App() {
@@ -22,6 +23,8 @@ function App() {
     switch (activeView) {
       case 'dashboard':
         return <Dashboard />;
+      case 'analysis':
+        return <Analysis />;
       default:
         return (
           <div className="placeholder-view">
