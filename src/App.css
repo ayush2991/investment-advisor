@@ -1,19 +1,35 @@
+
 .app-container {
   display: flex;
   min-height: 100vh;
-  background-color: var(--background);
+  background: radial-gradient(120% 120% at 20% 20%, rgba(249, 115, 22, 0.08), transparent 40%),
+    radial-gradient(100% 120% at 80% 0%, rgba(255, 107, 53, 0.08), transparent 45%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+  position: relative;
+  overflow: hidden;
+}
+
+.app-container::after {
+  content: '';
+  position: absolute;
+  inset: 10% 5% 0 25%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0));
+  filter: blur(80px);
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 .main-wrapper {
   flex: 1;
-  margin-left: 260px;
-  /* Width of sidebar */
+  margin-left: 280px;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 1;
 }
 
 .content {
-  padding: 2rem;
+  padding: 2.5rem;
   flex: 1;
 }
 
@@ -25,22 +41,26 @@
   height: 60vh;
   text-align: center;
   gap: 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
 }
 
 .placeholder-view h2 {
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--foreground);
 }
 
 .placeholder-view p {
-  opacity: 0.6;
-  max-width: 400px;
+  opacity: 0.7;
+  max-width: 420px;
 }
 
 @media (max-width: 1024px) {
   .sidebar {
-    width: 80px;
+    width: 84px;
   }
 
   .logo-text,
@@ -50,7 +70,7 @@
   }
 
   .main-wrapper {
-    margin-left: 80px;
+    margin-left: 84px;
   }
 
   .nav-item {

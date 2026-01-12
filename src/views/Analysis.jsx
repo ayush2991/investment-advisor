@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Loader2, TrendingUp, TrendingDown, Info, ShieldAlert, Target, CheckCircle2 } from 'lucide-react';
 import './Analysis.css';
 
@@ -7,6 +7,76 @@ const Analysis = () => {
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState(null);
     const [error, setError] = useState(null);
+
+    // Restore persisted analysis state (if any) when component mounts
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem('analysisState');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed) {
+                    setTicker(parsed.ticker || '');
+                    setData(parsed.data || null);
+                    setError(parsed.error || null);
+                    // Keep loading false on mount; any in-progress operations won't be resumed.
+                    setLoading(false);
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to restore analysis state:', e);
+        }
+    }, []);
+
+    // Persist relevant state whenever it changes so navigation away doesn't reset the view
+    useEffect(() => {
+        try {
+            const payload = { ticker, data, error };
+            localStorage.setItem('analysisState', JSON.stringify(payload));
+        } catch (e) {
+            console.warn('Failed to save analysis state:', e);
+        }
+    }, [ticker, data, error]);
+
+    // Helper to render formatted analysis text
+    const renderAnalysisText = (value) => {
+        if (typeof value !== 'string') {
+            if (typeof value === 'object' && value !== null) {
+                return JSON.stringify(value, null, 2);
+            }
+            return 'N/A';
+        }
+
+        // Convert **bold** to <strong> tags
+        let formatted = value.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+        // Convert bullet points to proper list items
+        const lines = formatted.split('\n');
+        let inList = false;
+        let result = [];
+
+        for (let line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('•')) {
+                if (!inList) {
+                    result.push('<ul>');
+                    inList = true;
+                }
+                result.push(`<li>${trimmed.substring(1).trim()}</li>`);
+            } else {
+                if (inList) {
+                    result.push('</ul>');
+                    inList = false;
+                }
+                if (trimmed) {
+                    result.push(`<p>${trimmed}</p>`);
+                }
+            }
+        }
+
+        if (inList) result.push('</ul>');
+
+        return <div dangerouslySetInnerHTML={{ __html: result.join('') }} />;
+    };
 
     const handleSearch = async (e) => {
         e.preventDefault();
@@ -17,17 +87,33 @@ const Analysis = () => {
         setData(null);
 
         try {
+            console.log('Analyzing ticker:', ticker);
             const response = await fetch('http://localhost:8000/analyze', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ticker: ticker.trim() }),
             });
 
-            if (!response.ok) throw new Error('Failed to analyze security');
+            console.log('Response status:', response.status);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Error response:', errorText);
+                throw new Error(`Failed to analyze security: ${response.status}`);
+            }
 
             const result = await response.json();
+            console.log('Analysis result:', result);
+
+            // Validate the response structure
+            if (!result || !result.snapshot || !result.analysis) {
+                console.error('Invalid response structure:', result);
+                throw new Error('Invalid response from server');
+            }
+
             setData(result);
         } catch (err) {
+            console.error('Error in handleSearch:', err);
             setError(err.message);
         } finally {
             setLoading(false);
@@ -72,8 +158,15 @@ const Analysis = () => {
                         <div className="snapshot-column">
                             <div className="card snapshot-card">
                                 <div className="card-header">
-                                    <h3 className="text-gold">Security Snapshot</h3>
-                                    <span className="badge">{data.snapshot.ticker}</span>
+                                    <div>
+                                        <h3 className="text-gold">Security Snapshot</h3>
+                                        <span className="badge">{data.snapshot.ticker}</span>
+                                    </div>
+                                    {data.snapshot.analyst_ratings?.recommendation && (
+                                        <span className={`sentiment-badge ${data.snapshot.analyst_ratings.recommendation.toLowerCase()}`}>
+                                            {data.snapshot.analyst_ratings.recommendation}
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="snapshot-metrics">
                                     <div className="metric">
@@ -88,27 +181,9 @@ const Analysis = () => {
                                         <span>Debt/Equity</span>
                                         <h3>{data.snapshot.debt_to_equity?.toFixed(2) || 'N/A'}</h3>
                                     </div>
-                                </div>
-                            </div>
-
-                            <div className="card sentiment-card mt-6">
-                                <div className="card-header">
-                                    <h3>Market Sentiment</h3>
-                                </div>
-                                <div className="sentiment-details">
-                                    <div className="sentiment-item">
-                                        <Target size={18} className="text-gold" />
-                                        <div>
-                                            <p className="label">Analyst Target</p>
-                                            <p className="value">{data.snapshot.analyst_ratings?.target_mean || 'N/A'}</p>
-                                        </div>
-                                    </div>
-                                    <div className="sentiment-item">
-                                        <CheckCircle2 size={18} className="text-gold" />
-                                        <div>
-                                            <p className="label">Recommendation</p>
-                                            <p className="value text-capitalize">{data.snapshot.analyst_ratings?.recommendation || 'N/A'}</p>
-                                        </div>
+                                    <div className="metric">
+                                        <span>Analyst Target</span>
+                                        <h3>{data.snapshot.analyst_ratings?.target_mean ? `${data.snapshot.analyst_ratings.target_mean} ${data.snapshot.currency}` : 'N/A'}</h3>
                                     </div>
                                 </div>
                             </div>
@@ -122,7 +197,7 @@ const Analysis = () => {
                                         <Info size={18} className="text-gold" />
                                         <h4>Investment Thesis</h4>
                                     </div>
-                                    <p>{data.analysis.investment_thesis}</p>
+                                    <p>{renderAnalysisText(data.analysis.investment_thesis)}</p>
                                 </div>
 
                                 <div className="report-divider"></div>
@@ -132,7 +207,7 @@ const Analysis = () => {
                                         <ShieldAlert size={18} className="text-gold" />
                                         <h4>Risk/Reward Analysis</h4>
                                     </div>
-                                    <p>{data.analysis.risk_reward}</p>
+                                    <p>{renderAnalysisText(data.analysis.risk_reward)}</p>
                                 </div>
 
                                 <div className="report-divider"></div>
@@ -142,11 +217,11 @@ const Analysis = () => {
                                         <TrendingUp size={18} className="text-gold" />
                                         <h4>Portfolio Fit</h4>
                                     </div>
-                                    <p>{data.analysis.portfolio_fit}</p>
+                                    <p>{renderAnalysisText(data.analysis.portfolio_fit)}</p>
                                 </div>
 
                                 <div className="bottom-line">
-                                    <p><strong>The Bottom Line:</strong> {data.analysis.bottom_line}</p>
+                                    <p><strong>The Bottom Line:</strong> {renderAnalysisText(data.analysis.bottom_line)}</p>
                                 </div>
                             </div>
                         </div>

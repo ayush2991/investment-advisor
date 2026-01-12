@@ -47,5 +47,17 @@ wheels/
 .installed.cfg
 *.egg
 
-# Pytest
+# Caching
+backend/agent_cache/
+backend/cache/
 .pytest_cache/
+
+.pytest_cache/
+
+# Env files
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+.envrc
