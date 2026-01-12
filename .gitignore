@@ -28,8 +28,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 venv/
+env/
+ENV/
 .env
 .python-version
+*.so
 
 # Distribution / packaging
 build/
@@ -46,6 +49,19 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+PIPFILE.lock
+
+# Testing
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+*.cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
 
 # Caching
 backend/agent_cache/
@@ -61,3 +77,17 @@ backend/cache/
 .env.production
 .env.test
 .envrc
+backend/.env
+backend/.env.*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini

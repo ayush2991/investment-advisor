@@ -5,7 +5,7 @@ An AI-powered investment analysis platform that combines quantitative data, mark
 ## Features
 
 - **Quantitative Analysis**: Real-time financial data from yfinance with 4-hour caching
-- **Market Intelligence**: News aggregation for tickers (mock implementation)
+- **Market Intelligence**: Real news via Tavily when `TAVILY_API_KEY` is configured; graceful fallback to mock headlines
 - **AI Synthesis**: OpenAI-powered investment thesis generation
 - **Smart Caching**: Multi-layer caching with diskcache (yfinance, news, orchestration) — 4-hour TTL
 - **State Persistence**: Analysis results persist across tab navigation (localStorage)
@@ -34,22 +34,30 @@ An AI-powered investment analysis platform that combines quantitative data, mark
 
 - Python 3.12+
 - Node.js 18+
-- OpenAI API key (set in `backend/.env`)
+- OpenAI API key (required)
+- Tavily API key (optional, for real news)
 
 ### Backend Setup
 
 ```bash
-cd backend
 python -m venv venv
 source venv/bin/activate  # or `venv\Scripts\activate` on Windows
-pip install -r ../requirements.txt
+pip install -r requirements.txt
+```
+
+Create `backend/.env`:
+
+```
+OPENAI_API_KEY=sk-...
+# Optional: enable real news via Tavily
+TAVILY_API_KEY=tvly-...
 ```
 
 ### Backend Run
 
 ```bash
 source venv/bin/activate
-uvicorn main:app --reload --port 8000
+python -m uvicorn backend.main:app --reload --port 8000
 ```
 
 Backend will be available at `http://127.0.0.1:8000/`
@@ -66,21 +74,15 @@ npm install
 npm run dev
 ```
 
-Frontend will be available at `http://localhost:5173/` (Vite will auto-bump to 5174/5175 if ports are occupied).
+Frontend will be available at `http://localhost:5173/`
 
 ### Local Dev Loop
 
-- Start backend: `./venv/bin/python -m uvicorn backend.main:app --reload --port 8000`
-- Start frontend: `npm run dev` and open the printed localhost port
-- If the Analysis view shows "Failed to fetch", confirm the backend is running on `:8000`
+1. Start backend: `source venv/bin/activate && python -m uvicorn backend.main:app --reload --port 8000`
+2. Start frontend: `npm run dev` and open the printed localhost port
+3. If the Analysis view shows "Failed to fetch", confirm the backend is running on port 8000
 
-## Environment Variables
 
-Create `backend/.env`:
-
-```
-OPENAI_API_KEY=sk-...
-```
 
 ## API Endpoints
 
@@ -107,24 +109,19 @@ curl -X POST -H "Content-Type: application/json" \
 ```json
 {
   "snapshot": {
-    "ticker": "AAPL",
-    "price": 259.37,
-    "currency": "USD",
-    "pe_ratio": 34.72,
-    "debt_to_equity": 152.41,
-    "market_cap": 3832542658560,
-    "analyst_ratings": {
-      "recommendation": "buy",
-      "target_mean": 287.83,
-      "number_of_analysts": 41
-    }
+    /* minimal display snapshot */
   },
   "analysis": {
-    "investment_thesis": "...",
-    "risk_reward": "...",
-    "portfolio_fit": "...",
-    "bottom_line": "..."
-  }
+    /* synthesized report */
+  },
+  "news": [
+    {
+      "title": "Apple Q4 beats expectations",
+      "source": "finance.yahoo.com",
+      "url": "https://...",
+      "sentiment": "neutral"
+    }
+  ]
 }
 ```
 
@@ -135,6 +132,7 @@ curl -X POST -H "Content-Type: application/json" \
 - Sidebar/header updated with glow accents; cards use gradient fills
 - Dashboard: glass stat cards, accent chart bars, refined lists
 - Analysis: accented search/CTA, glass report/snapshot cards
+- Market News card shows headlines via Tavily when configured
 
 ## Caching
 
@@ -194,15 +192,15 @@ investment-advisor/
 
 ## Key Dependencies
 
-- **Backend**: fastapi, uvicorn, yfinance, openai, diskcache, python-dotenv
-- **Frontend**: react, lucide-react, vite
+- **Backend**: fastapi, uvicorn, yfinance, openai, openai-agents, tavily-python, diskcache, python-dotenv, pydantic, pandas
+- **Frontend**: react (v19), react-dom, lucide-react, vite (v7)
 
 ## Development Notes
 
 - Backend uses uvicorn with `--reload` for hot-reloading during development
 - Diskcache automatically handles TTL expiration; no manual cleanup needed
 - Frontend state persists via localStorage; clear to reset Analysis view
-- Mock news implementation; replace `NewsAgent.get_recent_headlines()` with Tavily/Serper API
+- Real news supported via Tavily when `TAVILY_API_KEY` is set; otherwise mock headlines are returned
 
 ## Future Enhancements
 

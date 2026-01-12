@@ -187,6 +187,32 @@ const Analysis = () => {
                                     </div>
                                 </div>
                             </div>
+
+                            {Array.isArray(data.news) && data.news.length > 0 && (
+                                <div className="card news-card">
+                                    <div className="card-header">
+                                        <div>
+                                            <h3 className="text-gold">Market News</h3>
+                                            <span className="badge subtle">Live agent feed</span>
+                                        </div>
+                                    </div>
+                                    <div className="news-list">
+                                        {data.news.map((item, idx) => (
+                                            <div key={idx} className="news-item">
+                                                <div className="news-top">
+                                                    <span className="news-source">{item.source || 'Source'}</span>
+                                                    {item.sentiment && (
+                                                        <span className={`news-pill ${item.sentiment.toLowerCase()}`}>
+                                                            {item.sentiment}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="news-title">{item.title}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Analysis Column */}

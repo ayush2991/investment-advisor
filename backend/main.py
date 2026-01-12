@@ -1,17 +1,18 @@
 import os
 import logging
+import asyncio
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from pathlib import Path
 from backend.agents import (
-    QuantAgent,
-    NewsAgent,
-    Orchestrator,
     fetch_yfinance_data,
     fetch_news_headlines,
+    invalidate_news_cache,
     synthesize_investment_report,
+    collect_investment_data,
+    analyze_investment,
 )
 import uvicorn
 
@@ -50,7 +51,7 @@ class SynthesizeRequest(BaseModel):
 @app.get("/")
 async def root():
     logger.info("Root endpoint hit")
-    return {"status": "ok", "engine": "InvestAI Multi-Agent System"}
+    return {"status": "ok", "engine": "InvestAI Multi-Agent System (OpenAI Agents SDK)"}
 
 
 # ============================================================================
@@ -67,7 +68,7 @@ async def get_yfinance_data(ticker: str):
     logger.info(f"[Endpoint] /tools/yfinance/{ticker} hit")
     try:
         result = fetch_yfinance_data(ticker)
-        logger.debug(f"[Endpoint] Successfully fetched yfinance data for {ticker}")
+        logger.info(f"[Endpoint] Fetched yfinance data for {ticker}")
         return {"success": True, "data": result}
     except Exception as e:
         logger.error(f"[Endpoint] Error fetching yfinance data for {ticker}: {str(e)}")
@@ -77,15 +78,21 @@ async def get_yfinance_data(ticker: str):
 
 
 @app.get("/tools/news/{ticker}")
-async def get_news_data(ticker: str):
+async def get_news_data(ticker: str, refresh: bool = False):
     """
     Standalone tool endpoint: Fetch news headlines for a ticker.
     Useful for testing the news collection layer independently.
     """
     logger.info(f"[Endpoint] /tools/news/{ticker} hit")
     try:
+        if refresh:
+            logger.info(
+                f"[Endpoint] refresh=true; invalidating NewsAgent cache for {ticker}"
+            )
+            removed = invalidate_news_cache(ticker)
+            logger.info(f"[Endpoint] invalidate result for {ticker}: removed={removed}")
         result = fetch_news_headlines(ticker)
-        logger.debug(f"[Endpoint] Successfully fetched news headlines for {ticker}")
+        logger.info(f"[Endpoint] Fetched news headlines for {ticker}")
         return {"success": True, "data": result}
     except Exception as e:
         logger.error(f"[Endpoint] Error fetching news headlines for {ticker}: {str(e)}")
@@ -113,10 +120,10 @@ async def synthesize_report(request: SynthesizeRequest):
         )
 
     try:
-        result = synthesize_investment_report(
+        result = await synthesize_investment_report(
             request.ticker, request.quant_data, request.news_data, openai_key
         )
-        logger.debug(f"[Endpoint] Successfully synthesized report for {request.ticker}")
+        logger.info(f"[Endpoint] Synthesized report for {request.ticker}")
         return {"success": True, "data": result}
     except Exception as e:
         logger.error(
@@ -135,10 +142,13 @@ async def synthesize_report(request: SynthesizeRequest):
 @app.post("/analyze")
 async def analyze(request: AnalysisRequest):
     """
-    Main orchestration endpoint: Runs the full analysis pipeline.
-    1. Quantitative data collection (QuantAgent)
-    2. News data collection (NewsAgent)
-    3. Report synthesis (Orchestrator)
+    Main orchestration endpoint: Runs the full analysis pipeline using OpenAI Agents SDK.
+    1. Data Collection using Data Collector agent
+    2. Investment Analysis using Investment Analyst agent
+
+    The agents use the following tools:
+    - fetch_yfinance_data: Retrieves comprehensive financial data
+    - fetch_news_headlines: Fetches recent market news
     """
     ticker = request.ticker.upper()
     logger.info(f"[Endpoint] /analyze hit for ticker: {ticker}")
@@ -150,6 +160,7 @@ async def analyze(request: AnalysisRequest):
             "[Endpoint] OPENAI_API_KEY not configured; returning fallback response"
         )
         # Fallback for UI testing if no key is provided
+        fallback_news = fetch_news_headlines(ticker)
         return {
             "snapshot": {
                 "ticker": ticker,
@@ -165,36 +176,29 @@ async def analyze(request: AnalysisRequest):
                 "portfolio_fit": "Portfolio alignment requires agent synthesis.",
                 "bottom_line": "Live intelligence disabled.",
             },
+            "news": fallback_news,
         }
 
     try:
         logger.debug(f"[Endpoint] Starting analysis pipeline for {ticker}")
 
-        # 1. Quantitative Deep Dive
-        logger.debug(f"[Endpoint] Initializing QuantAgent for {ticker}")
-        quant = QuantAgent(ticker)
-        snapshot_data = quant.get_snapshot()
-        logger.debug(f"[Endpoint] QuantAgent snapshot obtained for {ticker}")
+        # Collect financial and news data
+        logger.debug(f"[Endpoint] Using agents to collect data for {ticker}")
+        financial_data = fetch_yfinance_data(ticker)
+        news_data = fetch_news_headlines(ticker)
+        logger.debug(f"[Endpoint] Data collection complete for {ticker}")
 
-        # 2. Market Intelligence
-        logger.debug(f"[Endpoint] Initializing NewsAgent for {ticker}")
-        news = NewsAgent(ticker)
-        headlines = await news.get_recent_headlines()
-        logger.debug(f"[Endpoint] NewsAgent headlines obtained for {ticker}")
-
-        # 3. Agentic Orchestration - pass full data to AI
-        logger.debug(f"[Endpoint] Initializing Orchestrator for {ticker}")
-        orch = Orchestrator(openai_key)
-        report = await orch.synthesize_report(
-            ticker, snapshot_data["full_data"], headlines  # AI gets all the data
+        # Analyze the collected data using the Investment Analyst agent
+        logger.debug(f"[Endpoint] Triggering Investment Analyst agent for {ticker}")
+        report = await analyze_investment(
+            ticker, financial_data["full_data"], news_data
         )
         logger.info(f"[Endpoint] Analysis complete for {ticker}")
 
         return {
-            "snapshot": snapshot_data[
-                "display_snapshot"
-            ],  # UI gets minimal display data
+            "snapshot": financial_data["display_snapshot"],
             "analysis": report,
+            "news": news_data,
         }
     except Exception as e:
         logger.error(f"[Endpoint] Error analyzing {ticker}: {str(e)}", exc_info=True)

@@ -2,6 +2,7 @@ fastapi
 uvicorn
 yfinance
 openai
+openai-agents
 tavily-python
 python-dotenv
 pydantic
