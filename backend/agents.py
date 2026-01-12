@@ -254,6 +254,7 @@ def invalidate_news_cache(ticker: str) -> bool:
 # ============================================================================
 data_collector_agent = Agent(
     name="Data Collector",
+    model="gpt-5-nano",
     instructions="""You are a financial data collection agent. Your job is to gather comprehensive 
 financial and news information about a stock ticker. Use the available tools to fetch:
 1. Detailed financial data using fetch_yfinance_data()
@@ -269,6 +270,7 @@ Return the collected data in a structured format for analysis.""",
 # ============================================================================
 analyst_agent = Agent(
     name="Investment Analyst",
+    model="gpt-5-nano",
     instructions="""You are a Lead Financial Analyst specializing in investment recommendations. 
 Your role is to synthesize comprehensive investment reports based on financial data and market news.
 
