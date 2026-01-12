@@ -82,8 +82,6 @@ Frontend will be available at `http://localhost:5173/`
 2. Start frontend: `npm run dev` and open the printed localhost port
 3. If the Analysis view shows "Failed to fetch", confirm the backend is running on port 8000
 
-
-
 ## API Endpoints
 
 ### `GET /`
