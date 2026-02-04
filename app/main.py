@@ -19,11 +19,11 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
-from agents import Agent, Runner
+from agents import Agent, Runner, AgentOutputSchema
 from cachetools import TTLCache
 from pydantic import BaseModel
 
-APP_NAME = "Atlas AI Investment Advisor"
+APP_NAME = "PortfolioPulse Advisor"
 TAVILY_ENDPOINT = "https://api.tavily.com/search"
 
 app = FastAPI(title=APP_NAME)
@@ -249,8 +249,11 @@ class StockBrief(BaseModel):
     earnings: str | None = None
 
 
-def _model_name() -> str:
-    return os.getenv("OPENAI_MODEL", "gpt-5-nano")
+def _model_name(override: str | None = None) -> str:
+    if override:
+        return override
+    # Use gpt-4o-mini as a reliable default fallback
+    return os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 
 class PortfolioInput(BaseModel):
@@ -259,12 +262,14 @@ class PortfolioInput(BaseModel):
 
 
 class PortfolioSummary(BaseModel):
-    summary: str
-    strengths: list[str]
-    weaknesses: list[str]
-    improvements: list[str]
-    suggested_portfolios: list[list[PortfolioInput]]
-    comparison: str
+    summary: str = ""
+    current_portfolio_analysis: str = ""
+    suggested_portfolio_analysis: str = ""
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+    improvements: list[str] = []
+    suggested_portfolios: list[list[PortfolioInput]] = []
+    comparison: str = ""
 
 
 class NewsQuery(BaseModel):
@@ -275,7 +280,20 @@ class NewsSelection(BaseModel):
     selected_indices: list[int]
 
 
-def _build_fundamentals_agent() -> Agent:
+class ComparisonBrief(BaseModel):
+    summary: str = ""
+    portfolio_a_analysis: str = ""
+    portfolio_b_analysis: str = ""
+    comparison_table_summary: str = ""
+    strengths_a: list[str] = []
+    strengths_b: list[str] = []
+    weaknesses_a: list[str] = []
+    weaknesses_b: list[str] = []
+    best_for_scenarios: list[dict[str, str]] = []
+    verdict: str = ""
+
+
+def _build_fundamentals_agent(model: str | None = None) -> Agent:
     return Agent(
         name="Fundamentals Agent",
         instructions=(
@@ -285,66 +303,70 @@ def _build_fundamentals_agent() -> Agent:
             "valuation logic unless the data supports it. If data is missing, note that explicitly. "
             "Avoid speculation."
         ),
-        model=_model_name(),
-        output_type=FundamentalsBrief,
+        model=_model_name(model),
+        output_type=AgentOutputSchema(FundamentalsBrief, strict_json_schema=False),
     )
 
 
-def _build_technicals_agent() -> Agent:
+def _build_technicals_agent(model: str | None = None) -> Agent:
     return Agent(
         name="Technicals Agent",
         instructions=(
             "Analyze technical and price-based signals using only the provided technicals JSON. "
             "Summarize trend, momentum, and notable risk signals. Avoid speculation."
         ),
-        model=_model_name(),
-        output_type=TechnicalBrief,
+        model=_model_name(model),
+        output_type=AgentOutputSchema(TechnicalBrief, strict_json_schema=False),
     )
 
 
-def _build_news_agent() -> Agent:
+def _build_news_agent(model: str | None = None) -> Agent:
     return Agent(
         name="News Agent",
         instructions=(
             "Summarize the provided news list into key items and overall sentiment. "
             "Only use the news payload; if none is present, say so."
         ),
-        model=_model_name(),
-        output_type=NewsBrief,
+        model=_model_name(model),
+        output_type=AgentOutputSchema(NewsBrief, strict_json_schema=False),
     )
 
 
-def _build_synthesis_agent() -> Agent:
+def _build_synthesis_agent(model: str | None = None) -> Agent:
     return Agent(
         name="Synthesis Agent",
         instructions=(
             "Combine the fundamentals, technicals, and news summaries into a concise, "
             "client-ready brief. Only use the provided JSON. If data is missing, say so."
         ),
-        model=_model_name(),
-        output_type=StockBrief,
+        model=_model_name(model),
+        output_type=AgentOutputSchema(StockBrief, strict_json_schema=False),
     )
 
 
-def _build_portfolio_agent() -> Agent:
+def _build_portfolio_agent(model: str | None = None) -> Agent:
     return Agent(
         name="Portfolio Analyst",
         instructions=(
             "You are a portfolio analyst. Use only the provided JSON to summarize portfolio-level "
-            "strengths, weaknesses, and improvements. Focus on diversification, concentration, "
-            "sector balance, factor exposures, and risk/return tradeoffs. If holdings are ETFs or funds, "
-            "treat them as diversified vehicles and avoid penalizing the portfolio for a small number "
-            "of tickers without considering ETF breadth. Propose three alternative portfolios "
-            "(each a list of tickers and weights that sum to 100) that aim for higher expected "
-            "return and Sharpe than the current portfolio. Provide a brief comparison summary. "
+            "strengths, weaknesses, and improvements. "
+            "You MUST provide all fields in the output schema: "
+            "1. summary: High-level overview of the current state. "
+            "2. current_portfolio_analysis: Brief qualitative analysis of the current holdings. "
+            "3. suggested_portfolio_analysis: Brief qualitative analysis of why the suggested alternative is better. "
+            "4. strengths: Core strengths of the current setup. "
+            "5. weaknesses: Core risks or weaknesses of the current setup. "
+            "6. improvements: Specific tactical steps to improve the portfolio. "
+            "7. suggested_portfolios: A list containing exactly one list of PortfolioInput objects (ticker/weight) that sum to 1.0 (100%). "
+            "8. comparison: A final verdict comparing the current vs the suggested state. "
             "Avoid speculation."
         ),
-        model=_model_name(),
-        output_type=PortfolioSummary,
+        model=_model_name(model),
+        output_type=AgentOutputSchema(PortfolioSummary, strict_json_schema=False),
     )
 
 
-def _build_news_query_agent() -> Agent:
+def _build_news_query_agent(model: str | None = None) -> Agent:
     return Agent(
         name="News Query Agent",
         instructions=(
@@ -353,12 +375,12 @@ def _build_news_query_agent() -> Agent:
             "Focus on different aspects like recent earnings, product launches, analyst upgrades/downgrades, "
             "regulatory news, and industry trends. Output as a JSON list of strings."
         ),
-        model=_model_name(),
-        output_type=NewsQuery,
+        model=_model_name(model),
+        output_type=AgentOutputSchema(NewsQuery, strict_json_schema=False),
     )
 
 
-def _build_news_selection_agent() -> Agent:
+def _build_news_selection_agent(model: str | None = None) -> Agent:
     return Agent(
         name="News Selection Agent",
         instructions=(
@@ -367,12 +389,33 @@ def _build_news_selection_agent() -> Agent:
             "Avoid duplicates and low-quality summaries. Return a list of indices (0-indexed) of the "
             "selected articles in order of relevance."
         ),
-        model=_model_name(),
-        output_type=NewsSelection,
+        model=_model_name(model),
+        output_type=AgentOutputSchema(NewsSelection, strict_json_schema=False),
     )
 
 
-async def _openai_stock_brief(info: dict, technicals: dict, news: list[dict]) -> dict:
+def _build_comparison_agent(model: str | None = None) -> Agent:
+    return Agent(
+        name="Portfolio Comparison Agent",
+        instructions=(
+            "You are a senior investment strategist. Compare two investment portfolios (A and B) based on "
+            "their risk/return stats, sector allocations, and holdings. "
+            "You MUST provide all fields in the output schema: "
+            "1. summary: High-level tactical overview. "
+            "2. portfolio_a_analysis: Deep dive into A. "
+            "3. portfolio_b_analysis: Deep dive into B. "
+            "4. comparison_table_summary: Brief text summarizing the key statistical differences. "
+            "5. strengths_a/b & weaknesses_a/b: Detailed lists for both. "
+            "6. best_for_scenarios: A list of dicts with 'scenario' and 'analysis' keys. "
+            "7. verdict: Final conclusion on which is better for whom. "
+            "Use only provided data. Do not skip any fields."
+        ),
+        model=_model_name(model),
+        output_type=AgentOutputSchema(ComparisonBrief, strict_json_schema=False),
+    )
+
+
+async def _openai_stock_brief(info: dict, technicals: dict, news: list[dict], model: str | None = None) -> dict:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         return {
@@ -390,7 +433,7 @@ async def _openai_stock_brief(info: dict, technicals: dict, news: list[dict]) ->
                 "info": sanitized_info,
                 "technicals": sanitized_technicals,
                 "news": sanitized_news,
-                "model": _model_name(),
+                "model": _model_name(model),
             }
         )
         cached = _cache_get(AI_CACHE, cache_key)
@@ -398,10 +441,10 @@ async def _openai_stock_brief(info: dict, technicals: dict, news: list[dict]) ->
             logger.debug("ai summary cache hit for %s", cache_key)
             return cached
 
-        fundamentals_agent = _build_fundamentals_agent()
-        technicals_agent = _build_technicals_agent()
-        news_agent = _build_news_agent()
-        synthesis_agent = _build_synthesis_agent()
+        fundamentals_agent = _build_fundamentals_agent(model)
+        technicals_agent = _build_technicals_agent(model)
+        news_agent = _build_news_agent(model)
+        synthesis_agent = _build_synthesis_agent(model)
 
         logger.debug("fundamentals input: %s", json.dumps({"ticker_info": sanitized_info}, default=str))
         fundamentals_result = await Runner.run(
@@ -430,6 +473,7 @@ async def _openai_stock_brief(info: dict, technicals: dict, news: list[dict]) ->
         logger.debug("synthesis input: %s", json.dumps(synthesis_payload, default=str))
         result = await Runner.run(synthesis_agent, json.dumps(synthesis_payload))
     except Exception:
+        logger.exception("AI analysis failed for stock brief")
         return {"status": "error", "message": "AI analysis failed to run."}
 
     final_output = result.final_output
@@ -448,7 +492,7 @@ async def _openai_stock_brief(info: dict, technicals: dict, news: list[dict]) ->
     return parsed
 
 
-async def _openai_portfolio_brief(payload: dict) -> dict:
+async def _openai_portfolio_brief(payload: dict, model: str | None = None) -> dict:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         return {
@@ -456,17 +500,18 @@ async def _openai_portfolio_brief(payload: dict) -> dict:
             "message": "Set OPENAI_API_KEY to enable AI-generated analysis.",
         }
 
-    cache_key = _hash_payload({**payload, "model": _model_name()})
+    cache_key = _hash_payload({**payload, "model": _model_name(model)})
     cached = _cache_get(AI_CACHE, cache_key)
     if cached is not None:
         logger.debug("portfolio ai cache hit for %s", cache_key)
         return cached
 
-    agent = _build_portfolio_agent()
+    agent = _build_portfolio_agent(model)
     try:
         logger.debug("portfolio agent input: %s", json.dumps(payload, default=str))
         result = await Runner.run(agent, json.dumps(payload))
     except Exception:
+        logger.exception("AI analysis failed for portfolio brief")
         return {"status": "error", "message": "AI analysis failed to run."}
 
     if not result.final_output:
@@ -479,20 +524,52 @@ async def _openai_portfolio_brief(payload: dict) -> dict:
     return parsed
 
 
-async def _fetch_news(ticker: str, company_name: str | None) -> list[dict]:
+async def _openai_comparison_brief(payload: dict, model: str | None = None) -> dict:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return {
+            "status": "unavailable",
+            "message": "Set OPENAI_API_KEY to enable AI-generated analysis.",
+        }
+
+    cache_key = _hash_payload({**payload, "type": "comparison", "model": _model_name(model)})
+    cached = _cache_get(AI_CACHE, cache_key)
+    if cached is not None:
+        logger.debug("comparison ai cache hit for %s", cache_key)
+        return cached
+
+    agent = _build_comparison_agent(model)
+    try:
+        logger.debug("comparison agent input: %s", json.dumps(payload, default=str))
+        result = await Runner.run(agent, json.dumps(payload))
+    except Exception:
+        logger.exception("AI analysis failed for comparison brief")
+        return {"status": "error", "message": "AI analysis failed to run."}
+
+    if not result.final_output:
+        return {"status": "error", "message": "AI analysis returned no content."}
+
+    parsed = result.final_output.model_dump()
+    parsed["status"] = "ok"
+    logger.debug("comparison agent output: %s", parsed)
+    _cache_set(AI_CACHE, cache_key, parsed)
+    return parsed
+
+
+async def _fetch_news(ticker: str, company_name: str | None, model: str | None = None) -> list[dict]:
     api_key = os.getenv("TAVILY_API_KEY")
     if not api_key:
         logger.warning("TAVILY_API_KEY not set, news fetch will be skipped.")
         return []
 
-    cache_key = f"tavily_news_v2:{ticker}:{company_name or ''}"
+    cache_key = f"tavily_news_v2:{ticker}:{company_name or ''}:{_model_name(model)}"
     cached = _cache_get(NEWS_CACHE, cache_key)
     if cached is not None:
         logger.debug("news cache hit for %s", cache_key)
         return cached
 
     # 1. Generate queries
-    query_agent = _build_news_query_agent()
+    query_agent = _build_news_query_agent(model)
     try:
         query_input = f"Ticker: {ticker}, Company: {company_name or 'Unknown'}"
         query_result = await Runner.run(query_agent, query_input)
@@ -549,7 +626,7 @@ async def _fetch_news(ticker: str, company_name: str | None) -> list[dict]:
         return []
 
     # 3. Rank/Select
-    selection_agent = _build_news_selection_agent()
+    selection_agent = _build_news_selection_agent(model)
     try:
         selection_input = json.dumps(
             [
@@ -825,6 +902,7 @@ async def analyze_stock(
     return_method: str = "pct",
     drawdown_method: str = "full",
     drawdown_window_days: int = 365,
+    model: str | None = None,
 ):
     if not ticker:
         raise HTTPException(status_code=400, detail="Ticker is required.")
@@ -918,7 +996,7 @@ async def analyze_stock(
         "price_vs_52w": price_vs_52w,
     }
 
-    news = await _fetch_news(ticker, metrics.get("company_name"))
+    news = await _fetch_news(ticker, metrics.get("company_name"), model=model)
     technicals = {
         "price_change_1y": price_change_1y,
         "volatility": volatility,
@@ -937,7 +1015,7 @@ async def analyze_stock(
         "drawdown_method": drawdown_method,
         "drawdown_window_days": drawdown_window_days,
     }
-    ai_summary = await _openai_stock_brief(info, technicals, news)
+    ai_summary = await _openai_stock_brief(info, technicals, news, model=model)
 
     response = {
         "ticker": ticker,
@@ -1000,6 +1078,7 @@ class PortfolioRequest(BaseModel):
     beta_lookback_days: int = 365
     risk_free_source: str = "constant"
     risk_free_ticker: str = "^IRX"
+    model: str | None = "gpt-4o-mini"
 
 
 @app.post("/api/portfolio")
@@ -1064,7 +1143,7 @@ async def analyze_portfolio(request: PortfolioRequest):
         "sector_allocation": portfolio_data["sector_allocation"],
         "stats": portfolio_data["stats"],
     }
-    ai_summary = await _openai_portfolio_brief(payload)
+    ai_summary = await _openai_portfolio_brief(payload, model=request.model)
 
     suggested_stats = None
     suggested_best = None
@@ -1141,6 +1220,68 @@ async def analyze_portfolio(request: PortfolioRequest):
         ai_summary["comparison"] = _compare_portfolios(portfolio_data, suggested_stats)
     _cache_set(PORTFOLIO_CACHE, cache_key, response)
     return response
+
+
+class ComparisonRequest(BaseModel):
+    portfolio_a: list[PortfolioInput]
+    portfolio_b: list[PortfolioInput]
+    lookback_days: int = 365
+    trading_days: int = 252
+    risk_free_rate: float = 0.03
+    price_interval: str = "1d"
+    auto_adjust: bool = True
+    model: str | None = "gpt-4o-mini"
+
+
+@app.post("/api/compare-portfolios")
+async def compare_portfolios(request: ComparisonRequest):
+    if not request.portfolio_a or not request.portfolio_b:
+        raise HTTPException(status_code=400, detail="Both portfolios are required.")
+
+    def _prep_holdings(h_list):
+        h = [PortfolioInput(ticker=x.ticker.upper().strip(), weight=x.weight) for x in h_list if x.ticker]
+        return _normalize_weights(h)
+
+    ha = _prep_holdings(request.portfolio_a)
+    hb = _prep_holdings(request.portfolio_b)
+
+    end_date = datetime.utcnow().date()
+    start_date = end_date - timedelta(days=request.lookback_days)
+
+    def _get_stats(h):
+        return _portfolio_stats(
+            h, start_date, end_date, request.trading_days, request.risk_free_rate,
+            request.price_interval, request.auto_adjust, "SPY", "pct", "full", 365, 365, "constant", "^IRX"
+        )
+
+    stats_a = _get_stats(ha)
+    stats_b = _get_stats(hb)
+
+    if stats_a.get("error") or stats_b.get("error"):
+        raise HTTPException(status_code=404, detail=f"Error fetching data: {stats_a.get('error') or stats_b.get('error')}")
+
+    payload = {
+        "portfolio_a": {
+            "stats": stats_a["stats"],
+            "sector_allocation": stats_a["sector_allocation"],
+            "holdings": stats_a["holdings"]
+        },
+        "portfolio_b": {
+            "stats": stats_b["stats"],
+            "sector_allocation": stats_b["sector_allocation"],
+            "holdings": stats_b["holdings"]
+        }
+    }
+
+    ai_comparison = await _openai_comparison_brief(payload, model=request.model)
+
+    return {
+        "as_of": end_date.isoformat(),
+        "portfolio_a": stats_a,
+        "portfolio_b": stats_b,
+        "ai_comparison": ai_comparison,
+        "disclaimer": "This is for educational purposes only and not investment advice."
+    }
 
 
 @app.get("/health")

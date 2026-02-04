@@ -1,13 +1,14 @@
-# Atlas AI Investment Advisor
+# PortfolioPulse Investment Advisor
 
-Atlas is a high-performance, single-stock and portfolio analysis platform designed for modern investors. It leverages a sophisticated multi-agent AI pipeline to synthesize real-time market data, technical signals, and curated news into actionable institutional-grade insights.
+PortfolioPulse is a high-performance, single-stock and portfolio analysis platform designed for modern investors. It leverages a sophisticated multi-agent AI pipeline to synthesize real-time market data, technical signals, and curated news into actionable institutional-grade insights.
 
 ## 🚀 Overview
 
-Atlas bridges the gap between raw financial data and human-readable analysis. By orchestrating specialized AI agents, it provides:
+- PortfolioPulse bridges the gap between raw financial data and human-readable analysis. By orchestrating specialized AI agents, it provides:
 - **Deep Fundamentals**: Automated valuation and growth analysis using `yfinance`.
 - **Technical Momentum**: Quantitative trend and volatility tracking.
 - **Agentic Market Chatter**: Intelligent search query generation and news selection using Tavily.
+- **Strategic Portfolio Comparison**: Detailed head-to-head analysis of two different investment strategies with AI-driven scenario modeling.
 - **Portfolio Intelligence**: Advanced risk-return metrics (Sharpe, HHI, Beta) and AI-driven rebalancing suggestions.
 - **Premium Experience**: A sleek, glassmorphic UI built for speed and clarity.
 
@@ -48,7 +49,7 @@ investment-advisor/
 
 ## 🧠 Agentic Architecture
 
-The "brain" of Atlas is a pipeline of 7 specialized agents:
+The "brain" of PortfolioPulse is a pipeline of 7 specialized agents:
 
 1.  **News Query Agent**: Analyzes the stock context to generate 3-5 high-signal search queries.
 2.  **News Selection Agent**: Filters raw search results from Tavily to select the most impactful articles.
@@ -123,9 +124,9 @@ The app uses tiered `TTLCache` to minimize latency and API costs:
 - **AI Synthesis**: 30 minutes
 
 ### Deployment
-Atlas is ready to be deployed on platforms like **Render**, **Railway**, or **Heroku**. Ensure the environment variables are configured in your dashboard.
+PortfolioPulse is ready to be deployed on platforms like **Render**, **Railway**, or **Heroku**. Ensure the environment variables are configured in your dashboard.
 
 ---
 
 ## ⚖️ Disclaimer
-*Atlas AI is an educational tool and does not constitute financial advice. Always perform your own due diligence or consult with a certified financial advisor before making investment decisions.*
+*PortfolioPulse is an educational tool and does not constitute financial advice. Always perform your own due diligence or consult with a certified financial advisor before making investment decisions.*

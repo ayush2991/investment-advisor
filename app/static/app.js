@@ -1,5 +1,5 @@
 if (window.__atlasInitialized) {
-  console.warn("Atlas UI already initialized.");
+  console.warn("PortfolioPulse UI already initialized.");
 } else {
   window.__atlasInitialized = true;
 }
@@ -16,11 +16,16 @@ const newsEl = document.getElementById("news");
 const portfolioForm = document.getElementById("portfolio-form");
 const portfolioHoldings = document.getElementById("portfolio-holdings");
 const portfolioStatus = document.getElementById("portfolio-status");
-const portfolioStats = document.getElementById("portfolio-stats");
-const portfolioInsights = document.getElementById("portfolio-insights");
-const portfolioSuggestedStats = document.getElementById("portfolio-suggested-stats");
-const portfolioHoldingsList = document.getElementById("portfolio-holdings-list");
-const portfolioSuggestedHoldings = document.getElementById("portfolio-suggested-holdings");
+const portfolioStatsA = document.getElementById("portfolio-stats-a");
+const portfolioStatsB = document.getElementById("portfolio-stats-b");
+const portfolioAiContent = document.getElementById("portfolio-ai-content");
+const compareForm = document.getElementById("compare-form");
+const compareAInput = document.getElementById("compare-a");
+const compareBInput = document.getElementById("compare-b");
+const compareStatus = document.getElementById("compare-status");
+const compareStatsA = document.getElementById("compare-stats-a");
+const compareStatsB = document.getElementById("compare-stats-b");
+const compareAiContent = document.getElementById("compare-ai-content");
 const statusTitle = document.getElementById("status-title");
 const statusSubtitle = document.getElementById("status-subtitle");
 const statusProgress = document.getElementById("status-progress");
@@ -38,6 +43,8 @@ const cfgDrawdownWindow = document.getElementById("cfg-drawdown-window");
 const cfgBetaLookback = document.getElementById("cfg-beta-lookback");
 const cfgRiskFreeSource = document.getElementById("cfg-risk-free-source");
 const cfgRiskFreeTicker = document.getElementById("cfg-risk-free-ticker");
+const cfgModel = document.getElementById("cfg-model");
+
 const tabButtons = document.querySelectorAll(".tab-button");
 const tabSections = document.querySelectorAll("[data-section]");
 
@@ -78,6 +85,22 @@ const setPortfolioStatus = (state, text) => {
   portfolioStatus.style.color =
     state === "loading"
       ? "#9ad0ff"
+      : state === "error"
+        ? "#ff8a7a"
+        : "#ffd38b";
+};
+
+const setCompareStatus = (state, text) => {
+  compareStatus.textContent = text;
+  compareStatus.style.background =
+    state === "loading"
+      ? "rgba(185, 167, 255, 0.18)"
+      : state === "error"
+        ? "rgba(255, 138, 122, 0.2)"
+        : "rgba(255, 211, 139, 0.18)";
+  compareStatus.style.color =
+    state === "loading"
+      ? "#b9a7ff"
       : state === "error"
         ? "#ff8a7a"
         : "#ffd38b";
@@ -138,41 +161,50 @@ const renderStockData = (data, fallbackTicker) => {
 };
 
 const renderPortfolioData = (data) => {
-  const stats = document.createDocumentFragment();
-  stats.appendChild(buildRow("Annualized Return", fmtPct(data.stats.annualized_return)));
-  stats.appendChild(buildRow("Annualized Volatility", fmtPct(data.stats.annualized_volatility)));
-  stats.appendChild(buildRow("Max Drawdown", fmtPct(data.stats.max_drawdown)));
-  stats.appendChild(buildRow("Beta", fmtFloat(data.stats.beta)));
-  stats.appendChild(buildRow("Concentration (HHI)", fmtFloat(data.stats.concentration_hhi, 3)));
-  stats.appendChild(buildRow("Effective Holdings", fmtFloat(data.stats.effective_holdings, 2)));
-  stats.appendChild(buildRow("Sharpe Ratio", fmtFloat(data.stats.sharpe_ratio, 2)));
-  portfolioStats.replaceChildren(stats);
+  const countA = data.holdings ? data.holdings.length : 0;
+  const countB = data.suggested_holdings ? data.suggested_holdings.length : 0;
+  const maxHoldings = Math.max(countA, countB);
 
-  portfolioInsights.replaceChildren(renderPortfolioInsights(data.ai_summary));
+  const renderPortfolioOverview = (target, stats, holdings, minRows) => {
+    const fragment = document.createDocumentFragment();
 
-  if (data.suggested_portfolio && data.suggested_portfolio.stats && portfolioSuggestedStats) {
-    const suggestedStats = document.createDocumentFragment();
-    const s = data.suggested_portfolio.stats;
-    suggestedStats.appendChild(buildRow("Annualized Return", fmtPct(s.annualized_return)));
-    suggestedStats.appendChild(buildRow("Annualized Volatility", fmtPct(s.annualized_volatility)));
-    suggestedStats.appendChild(buildRow("Max Drawdown", fmtPct(s.max_drawdown)));
-    suggestedStats.appendChild(buildRow("Beta", fmtFloat(s.beta)));
-    suggestedStats.appendChild(buildRow("Concentration (HHI)", fmtFloat(s.concentration_hhi, 3)));
-    suggestedStats.appendChild(buildRow("Effective Holdings", fmtFloat(s.effective_holdings, 2)));
-    suggestedStats.appendChild(buildRow("Sharpe Ratio", fmtFloat(s.sharpe_ratio, 2)));
-    portfolioSuggestedStats.replaceChildren(suggestedStats);
+    // 1. Holdings first (padded)
+    const hList = renderHoldingsList(holdings, minRows);
+    if (typeof hList === "string") {
+      fragment.append(hList);
+    } else {
+      fragment.appendChild(hList);
+    }
+
+    // 2. Clear Divider
+    const hr = document.createElement("hr");
+    hr.style.margin = "20px 0";
+    hr.style.border = "none";
+    hr.style.borderTop = "1px solid rgba(255, 255, 255, 0.12)";
+    fragment.appendChild(hr);
+
+    // 3. Stats second
+    const statsContainer = document.createElement("div");
+    statsContainer.style.display = "grid";
+    statsContainer.style.gap = "8px";
+    statsContainer.appendChild(buildRow("Annual Return", fmtPct(stats.annualized_return)));
+    statsContainer.appendChild(buildRow("Volatility", fmtPct(stats.annualized_volatility)));
+    statsContainer.appendChild(buildRow("Max Drawdown", fmtPct(stats.max_drawdown)));
+    statsContainer.appendChild(buildRow("Sharpe Ratio", fmtFloat(stats.sharpe_ratio, 2)));
+    statsContainer.appendChild(buildRow("Beta", fmtFloat(stats.beta, 2)));
+    statsContainer.appendChild(buildRow("Effective Holdings", fmtFloat(stats.effective_holdings, 1)));
+    fragment.appendChild(statsContainer);
+
+    target.replaceChildren(fragment);
+  };
+
+  renderPortfolioOverview(portfolioStatsA, data.stats, data.holdings, maxHoldings);
+
+  if (data.suggested_portfolio && data.suggested_portfolio.stats && portfolioStatsB) {
+    renderPortfolioOverview(portfolioStatsB, data.suggested_portfolio.stats, data.suggested_holdings || [], maxHoldings);
   }
 
-  if (portfolioHoldingsList) {
-    portfolioHoldingsList.replaceChildren(renderHoldingsList(data.holdings));
-  }
-  if (portfolioSuggestedHoldings && data.suggested_holdings) {
-    const enriched = data.suggested_holdings.map((holding) => ({
-      ticker: holding.ticker,
-      weight: holding.weight,
-    }));
-    portfolioSuggestedHoldings.replaceChildren(renderHoldingsList(enriched));
-  }
+  portfolioAiContent.replaceChildren(renderPortfolioInsights(data.ai_summary));
 };
 
 const setActiveTab = (tab) => {
@@ -193,13 +225,20 @@ const setActiveTab = (tab) => {
   if (tab === "portfolio" && window.portfolioLastData) {
     renderPortfolioData(window.portfolioLastData);
   }
+  if (tab === "compare" && window.compareLastData) {
+    renderComparisonData(window.compareLastData);
+  }
 };
 
 tabButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
     setActiveTab(btn.dataset.tab);
     setGlobalStatus(
-      btn.dataset.tab === "stock" ? "Stock analysis" : "Portfolio analysis",
+      btn.dataset.tab === "stock"
+        ? "Stock analysis"
+        : btn.dataset.tab === "portfolio"
+          ? "Portfolio analysis"
+          : "Portfolio comparison",
       "Ready for analysis.",
       false
     );
@@ -218,18 +257,22 @@ const buildRow = (label, value) => {
 };
 
 const parseHoldings = (input) => {
+  if (!input) return [];
+  // Split by both comma and newline to be flexible
   return input
-    .split(",")
+    .split(/,|\n/)
     .map((pair) => pair.trim())
     .filter(Boolean)
     .map((pair) => {
-      const [ticker, weight] = pair.split(":").map((item) => item.trim());
+      const parts = pair.split(":").map((item) => item.trim());
+      if (parts.length < 2) return null;
+      const [ticker, weight] = parts;
       return {
         ticker: ticker ? ticker.toUpperCase() : "",
-        weight: weight ? Number(weight) : 0,
+        weight: weight ? parseFloat(weight) : 0,
       };
     })
-    .filter((item) => item.ticker);
+    .filter((item) => item && item.ticker && !isNaN(item.weight));
 };
 
 const getConfig = () => ({
@@ -247,6 +290,7 @@ const getConfig = () => ({
   drawdown_window_days: Number(cfgDrawdownWindow?.value || 365),
   beta_lookback_days: Number(cfgBetaLookback?.value || 365),
   benchmark_ticker: cfgBenchmark?.value ? cfgBenchmark.value.toUpperCase() : "SPY",
+  model: cfgModel?.value || "gpt-4o-mini"
 });
 
 const renderPortfolioInsights = (summary) => {
@@ -259,51 +303,97 @@ const renderPortfolioInsights = (summary) => {
     return wrapper;
   }
 
-  const summaryText = document.createElement("p");
-  summaryText.textContent = summary.summary || "No summary returned.";
-  summaryText.style.marginBottom = "12px";
-  wrapper.appendChild(summaryText);
-
-  const buildList = (title, items) => {
-    const label = document.createElement("strong");
-    label.textContent = title;
-    const list = document.createElement("ul");
-    (items || []).forEach((item) => {
-      const li = document.createElement("li");
-      li.textContent = item;
-      list.appendChild(li);
-    });
-    list.style.margin = "8px 0 16px";
-    list.style.paddingLeft = "18px";
-    wrapper.appendChild(label);
-    wrapper.appendChild(list);
+  const addText = (text, isVerdict = false) => {
+    const p = document.createElement("p");
+    p.textContent = text;
+    p.style.marginBottom = "16px";
+    if (isVerdict) {
+      p.style.padding = "16px";
+      p.style.background = "rgba(154, 208, 255, 0.08)";
+      p.style.borderRadius = "12px";
+      p.style.borderLeft = "4px solid var(--accent)";
+    }
+    wrapper.appendChild(p);
   };
 
-  buildList("Strengths", summary.strengths);
-  buildList("Weaknesses", summary.weaknesses);
-  buildList("Improvements", summary.improvements);
+  const addList = (title, items) => {
+    const h = document.createElement("strong");
+    h.textContent = title;
+    h.style.display = "block";
+    h.style.marginTop = "12px";
+    const ul = document.createElement("ul");
+    ul.style.margin = "8px 0 16px";
+    ul.style.paddingLeft = "20px";
+    (items || []).forEach(item => {
+      const li = document.createElement("li");
+      li.textContent = item;
+      ul.appendChild(li);
+    });
+    wrapper.appendChild(h);
+    wrapper.appendChild(ul);
+  };
+
+  addText(summary.summary);
+
+  const grid = document.createElement("div");
+  grid.style.display = "grid";
+  grid.style.gridTemplateColumns = "repeat(auto-fit, minmax(300px, 1fr))";
+  grid.style.gap = "20px";
+
+  const colA = document.createElement("div");
+  const headA = document.createElement("h4");
+  headA.textContent = "Current State";
+  headA.style.color = "var(--accent)";
+  colA.appendChild(headA);
+  colA.appendChild(Object.assign(document.createElement("p"), { textContent: summary.current_portfolio_analysis, style: "font-size: 0.9rem; margin-top: 8px;" }));
+
+  const colB = document.createElement("div");
+  const headB = document.createElement("h4");
+  headB.textContent = "Optimized Alternative";
+  headB.style.color = "var(--accent-2)";
+  colB.appendChild(headB);
+  colB.appendChild(Object.assign(document.createElement("p"), { textContent: summary.suggested_portfolio_analysis, style: "font-size: 0.9rem; margin-top: 8px;" }));
+
+  grid.appendChild(colA);
+  grid.appendChild(colB);
+  wrapper.appendChild(grid);
+
+  addList("Core Strengths", summary.strengths);
+  addList("Risk Factors", summary.weaknesses);
+  addList("Strategic Steps", summary.improvements);
 
   if (summary.comparison) {
-    const comparison = document.createElement("p");
-    comparison.innerHTML = `<strong>Comparison</strong><br />${summary.comparison}`;
-    wrapper.appendChild(comparison);
+    addText(summary.comparison, true);
   }
 
   return wrapper;
 };
 
-const renderHoldingsList = (holdings) => {
-  if (!holdings || holdings.length === 0) return "—";
+const renderHoldingsList = (holdings, minRows = 0) => {
+  if ((!holdings || holdings.length === 0) && minRows === 0) return "—";
   const list = document.createElement("div");
   list.style.display = "grid";
   list.style.gap = "10px";
-  holdings.forEach((holding) => {
+
+  const items = holdings || [];
+  items.forEach((holding) => {
     const row = buildRow(
       `${holding.ticker}${holding.company_name ? ` · ${holding.company_name}` : ""}`,
       `${fmtPct(holding.weight * 100)}`
     );
     list.appendChild(row);
   });
+
+  // Pad to align horizontal lines across columns
+  for (let i = items.length; i < minRows; i++) {
+    const emptyRow = document.createElement("div");
+    emptyRow.innerHTML = "<strong>&nbsp;</strong><span>&nbsp;</span>";
+    emptyRow.style.display = "flex";
+    emptyRow.style.justifyContent = "space-between";
+    emptyRow.style.minHeight = "1.2rem"; // Match standard row height
+    list.appendChild(emptyRow);
+  }
+
   return list;
 };
 
@@ -405,7 +495,7 @@ form.addEventListener("submit", async (event) => {
       `&short_ma_window=${config.short_ma_window}&long_ma_window=${config.long_ma_window}` +
       `&price_interval=${config.price_interval}&auto_adjust=${config.auto_adjust}` +
       `&return_method=${config.return_method}&drawdown_method=${config.drawdown_method}` +
-      `&drawdown_window_days=${config.drawdown_window_days}`
+      `&drawdown_window_days=${config.drawdown_window_days}&model=${config.model}`
     );
     if (!response.ok) {
       throw new Error("Unable to fetch analysis");
@@ -440,11 +530,9 @@ portfolioForm.addEventListener("submit", async (event) => {
   setGlobalStatus("Portfolio analysis", "Analyzing portfolio...", true);
   setPortfolioStatus("loading", "Analyzing");
 
-  portfolioStats.replaceChildren();
-  portfolioInsights.replaceChildren();
-  if (portfolioSuggestedStats) portfolioSuggestedStats.replaceChildren();
-  if (portfolioHoldingsList) portfolioHoldingsList.replaceChildren();
-  if (portfolioSuggestedHoldings) portfolioSuggestedHoldings.replaceChildren();
+  portfolioStatsA.replaceChildren();
+  portfolioStatsB.replaceChildren();
+  portfolioAiContent.replaceChildren();
 
   try {
     const config = getConfig();
@@ -465,5 +553,198 @@ portfolioForm.addEventListener("submit", async (event) => {
   } catch (error) {
     setPortfolioStatus("error", "Error");
     setGlobalStatus("Portfolio analysis", "Analysis failed. Check holdings.", false);
+  }
+});
+
+const renderComparisonData = (data) => {
+  const countA = data.portfolio_a.holdings ? data.portfolio_a.holdings.length : 0;
+  const countB = data.portfolio_b.holdings ? data.portfolio_b.holdings.length : 0;
+  const maxHoldings = Math.max(countA, countB);
+
+  const renderPortfolioOverview = (target, stats, holdings, minRows) => {
+    const fragment = document.createDocumentFragment();
+
+    // 1. Holdings first (padded)
+    const hList = renderHoldingsList(holdings, minRows);
+    if (typeof hList === "string") {
+      fragment.append(hList);
+    } else {
+      fragment.appendChild(hList);
+    }
+
+    // 2. Clear Divider
+    const hr = document.createElement("hr");
+    hr.style.margin = "20px 0";
+    hr.style.border = "none";
+    hr.style.borderTop = "1px solid rgba(255, 255, 255, 0.12)";
+    fragment.appendChild(hr);
+
+    // 3. Stats second
+    const statsContainer = document.createElement("div");
+    statsContainer.style.display = "grid";
+    statsContainer.style.gap = "8px";
+    statsContainer.appendChild(buildRow("Annual Return", fmtPct(stats.annualized_return)));
+    statsContainer.appendChild(buildRow("Volatility", fmtPct(stats.annualized_volatility)));
+    statsContainer.appendChild(buildRow("Max Drawdown", fmtPct(stats.max_drawdown)));
+    statsContainer.appendChild(buildRow("Sharpe Ratio", fmtFloat(stats.sharpe_ratio, 2)));
+    statsContainer.appendChild(buildRow("Beta", fmtFloat(stats.beta, 2)));
+    statsContainer.appendChild(buildRow("Effective Holdings", fmtFloat(stats.effective_holdings, 1)));
+    fragment.appendChild(statsContainer);
+
+    target.replaceChildren(fragment);
+  };
+
+  renderPortfolioOverview(compareStatsA, data.portfolio_a.stats, data.portfolio_a.holdings, maxHoldings);
+  renderPortfolioOverview(compareStatsB, data.portfolio_b.stats, data.portfolio_b.holdings, maxHoldings);
+
+  const wrapper = document.createElement("div");
+  const comp = data.ai_comparison;
+
+  if (!comp || comp.status !== "ok") {
+    wrapper.textContent = comp?.message || "Comparison analysis unavailable.";
+    compareAiContent.replaceChildren(wrapper);
+    return;
+  }
+
+  const addText = (text, isVerdict = false) => {
+    const p = document.createElement("p");
+    p.textContent = text;
+    p.style.marginBottom = "16px";
+    if (isVerdict) {
+      p.style.padding = "16px";
+      p.style.background = "rgba(255, 211, 139, 0.08)";
+      p.style.borderRadius = "12px";
+      p.style.borderLeft = "4px solid var(--accent)";
+    }
+    wrapper.appendChild(p);
+  };
+
+  const addList = (title, items) => {
+    const h = document.createElement("strong");
+    h.textContent = title;
+    h.style.display = "block";
+    h.style.marginTop = "12px";
+    const ul = document.createElement("ul");
+    ul.style.margin = "8px 0 16px";
+    ul.style.paddingLeft = "20px";
+    items.forEach(item => {
+      const li = document.createElement("li");
+      li.textContent = item;
+      ul.appendChild(li);
+    });
+    wrapper.appendChild(h);
+    wrapper.appendChild(ul);
+  };
+
+  addText(comp.summary);
+
+  const grid = document.createElement("div");
+  grid.style.display = "grid";
+  grid.style.gridTemplateColumns = "repeat(auto-fit, minmax(300px, 1fr))";
+  grid.style.gap = "20px";
+
+  const colA = document.createElement("div");
+  const headA = document.createElement("h4");
+  headA.textContent = "Portfolio A";
+  headA.style.color = "var(--accent)";
+  colA.appendChild(headA);
+  colA.appendChild(Object.assign(document.createElement("p"), { textContent: comp.portfolio_a_analysis, style: "font-size: 0.9rem; margin-top: 8px;" }));
+
+  const colB = document.createElement("div");
+  const headB = document.createElement("h4");
+  headB.textContent = "Portfolio B";
+  headB.style.color = "var(--accent-2)";
+  colB.appendChild(headB);
+  colB.appendChild(Object.assign(document.createElement("p"), { textContent: comp.portfolio_b_analysis, style: "font-size: 0.9rem; margin-top: 8px;" }));
+
+  grid.appendChild(colA);
+  grid.appendChild(colB);
+  wrapper.appendChild(grid);
+
+  const strengthGrid = document.createElement("div");
+  strengthGrid.style.display = "grid";
+  strengthGrid.style.gridTemplateColumns = "repeat(auto-fit, minmax(300px, 1fr))";
+  strengthGrid.style.gap = "20px";
+  strengthGrid.style.marginTop = "20px";
+
+  const sA = document.createElement("div");
+  const sB = document.createElement("div");
+
+  const buildBulletList = (items) => {
+    const ul = document.createElement("ul");
+    ul.style.fontSize = "0.85rem";
+    ul.style.paddingLeft = "18px";
+    ul.style.margin = "8px 0";
+    items.forEach(i => {
+      const li = document.createElement("li");
+      li.textContent = i;
+      ul.appendChild(li);
+    });
+    return ul;
+  };
+
+  sA.appendChild(Object.assign(document.createElement("strong"), { textContent: "Strengths A" }));
+  sA.appendChild(buildBulletList(comp.strengths_a));
+  sA.appendChild(Object.assign(document.createElement("strong"), { textContent: "Weaknesses A" }));
+  sA.appendChild(buildBulletList(comp.weaknesses_a));
+
+  sB.appendChild(Object.assign(document.createElement("strong"), { textContent: "Strengths B" }));
+  sB.appendChild(buildBulletList(comp.strengths_b));
+  sB.appendChild(Object.assign(document.createElement("strong"), { textContent: "Weaknesses B" }));
+  sB.appendChild(buildBulletList(comp.weaknesses_b));
+
+  strengthGrid.appendChild(sA);
+  strengthGrid.appendChild(sB);
+  wrapper.appendChild(strengthGrid);
+
+  addList("Best for Scenarios", comp.best_for_scenarios.map(s => `${s.scenario}: ${s.analysis}`));
+  addText(comp.verdict, true);
+
+  compareAiContent.replaceChildren(wrapper);
+};
+
+compareForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const holdingsA = parseHoldings(compareAInput.value);
+  const holdingsB = parseHoldings(compareBInput.value);
+
+  if (!holdingsA.length || !holdingsB.length) return;
+
+  setActiveTab("compare");
+  setGlobalStatus("Portfolio comparison", "Running head-to-head analysis...", true);
+  setCompareStatus("loading", "Analyzing");
+
+  compareStatsA.replaceChildren();
+  compareStatsB.replaceChildren();
+  compareAiContent.replaceChildren();
+
+  try {
+    const config = getConfig();
+    const response = await fetch("/api/compare-portfolios", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        portfolio_a: holdingsA,
+        portfolio_b: holdingsB,
+        lookback_days: config.lookback_days,
+        trading_days: config.trading_days,
+        risk_free_rate: config.risk_free_rate,
+        price_interval: config.price_interval,
+        auto_adjust: config.auto_adjust,
+        model: config.model
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Unable to fetch comparison");
+    }
+    const data = await response.json();
+    renderComparisonData(data);
+    window.compareLastData = data;
+    setCompareStatus("ready", "Ready");
+    setGlobalStatus("Portfolio comparison", "Comparison complete.", false);
+  } catch (error) {
+    setCompareStatus("error", "Error");
+    setGlobalStatus("Portfolio comparison", "Comparison failed. Check inputs.", false);
   }
 });

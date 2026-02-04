@@ -1,125 +1,138 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ app_name }}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Sora:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="/static/styles.css" />
-  </head>
-  <body>
-    <div class="noise"></div>
-    <header class="hero">
-      <nav class="nav">
-        <div class="brand">Atlas AI</div>
-        <div class="nav-pill">Stock + Portfolio</div>
-      </nav>
-      <div class="hero-grid">
-        <div class="hero-content">
-          <p class="eyebrow">AI investment brief</p>
-          <h1>Instant stock and portfolio intelligence.</h1>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ app_name }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Sora:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+
+<body>
+  <div class="noise"></div>
+  <header class="hero">
+    <nav class="nav">
+      <div class="brand">PortfolioPulse</div>
+      <div class="nav-pill">Stock + Portfolio</div>
+    </nav>
+    <div class="hero-grid">
+      <div class="hero-content">
+        <p class="eyebrow">Next-Gen Investment Intelligence</p>
+        <h1>Analyze your wealth with AI precision.</h1>
+      </div>
+    </div>
+  </header>
+
+  <main class="content layout">
+    <aside class="config-panel" id="config-panel">
+      <div class="config-header">
+        <h2>Settings</h2>
+        <p>Configure analysis assumptions and data inputs.</p>
+      </div>
+      <div class="config-section">
+        <h3>AI Strategy</h3>
+        <div class="config-grid">
+          <label>
+            Analysis model
+            <select id="cfg-model">
+              <option value="gpt-5-nano" selected>gpt-5-nano</option>
+              <option value="gpt-4o-mini">gpt-4o-mini</option>
+              <option value="gpt-4o">gpt-4o</option>
+            </select>
+          </label>
         </div>
       </div>
-    </header>
-
-    <main class="content layout">
-      <aside class="config-panel" id="config-panel">
-        <div class="config-header">
-          <h2>Settings</h2>
-          <p>Configure analysis assumptions and data inputs.</p>
+      <div class="config-section">
+        <h3>Data window</h3>
+        <div class="config-grid">
+          <label>
+            Lookback (days)
+            <input type="number" id="cfg-lookback" value="365" min="30" max="1825" />
+          </label>
+          <label>
+            Trading days/year
+            <input type="number" id="cfg-trading-days" value="252" min="200" max="365" />
+          </label>
+          <label>
+            Interval
+            <select id="cfg-interval">
+              <option value="1d" selected>1d</option>
+              <option value="1wk">1wk</option>
+              <option value="1mo">1mo</option>
+            </select>
+          </label>
+          <label class="inline-toggle">
+            <input type="checkbox" id="cfg-auto-adjust" checked />
+            Auto-adjust prices
+          </label>
+          <label>
+            Return method
+            <select id="cfg-return-method">
+              <option value="pct" selected>Percent</option>
+              <option value="log">Log</option>
+            </select>
+          </label>
+          <label>
+            Drawdown method
+            <select id="cfg-drawdown-method">
+              <option value="full" selected>Full series</option>
+              <option value="rolling">Rolling window</option>
+            </select>
+          </label>
+          <label>
+            Drawdown window (days)
+            <input type="number" id="cfg-drawdown-window" value="365" min="30" max="1825" />
+          </label>
         </div>
-        <div class="config-section">
-          <h3>Data window</h3>
-          <div class="config-grid">
-            <label>
-              Lookback (days)
-              <input type="number" id="cfg-lookback" value="365" min="30" max="1825" />
-            </label>
-            <label>
-              Trading days/year
-              <input type="number" id="cfg-trading-days" value="252" min="200" max="365" />
-            </label>
-            <label>
-              Interval
-              <select id="cfg-interval">
-                <option value="1d" selected>1d</option>
-                <option value="1wk">1wk</option>
-                <option value="1mo">1mo</option>
-              </select>
-            </label>
-            <label class="inline-toggle">
-              <input type="checkbox" id="cfg-auto-adjust" checked />
-              Auto-adjust prices
-            </label>
-            <label>
-              Return method
-              <select id="cfg-return-method">
-                <option value="pct" selected>Percent</option>
-                <option value="log">Log</option>
-              </select>
-            </label>
-            <label>
-              Drawdown method
-              <select id="cfg-drawdown-method">
-                <option value="full" selected>Full series</option>
-                <option value="rolling">Rolling window</option>
-              </select>
-            </label>
-            <label>
-              Drawdown window (days)
-              <input type="number" id="cfg-drawdown-window" value="365" min="30" max="1825" />
-            </label>
-          </div>
+      </div>
+      <div class="config-section">
+        <h3>Stock signals</h3>
+        <div class="config-grid">
+          <label>
+            Short MA window
+            <input type="number" id="cfg-short-ma" value="50" min="5" max="200" />
+          </label>
+          <label>
+            Long MA window
+            <input type="number" id="cfg-long-ma" value="200" min="20" max="400" />
+          </label>
         </div>
-        <div class="config-section">
-          <h3>Stock signals</h3>
-          <div class="config-grid">
-            <label>
-              Short MA window
-              <input type="number" id="cfg-short-ma" value="50" min="5" max="200" />
-            </label>
-            <label>
-              Long MA window
-              <input type="number" id="cfg-long-ma" value="200" min="20" max="400" />
-            </label>
-          </div>
+      </div>
+      <div class="config-section">
+        <h3>Portfolio settings</h3>
+        <div class="config-grid">
+          <label>
+            Risk-free rate
+            <input type="number" id="cfg-risk-free" value="0.03" step="0.001" min="0" max="0.2" />
+          </label>
+          <label>
+            Risk-free source
+            <select id="cfg-risk-free-source">
+              <option value="constant" selected>Constant</option>
+              <option value="ticker">Ticker average</option>
+            </select>
+          </label>
+          <label>
+            Risk-free ticker
+            <input type="text" id="cfg-risk-free-ticker" value="^IRX" />
+          </label>
+          <label>
+            Benchmark ticker
+            <input type="text" id="cfg-benchmark" value="SPY" />
+          </label>
+          <label>
+            Beta lookback (days)
+            <input type="number" id="cfg-beta-lookback" value="365" min="30" max="1825" />
+          </label>
         </div>
-        <div class="config-section">
-          <h3>Portfolio settings</h3>
-          <div class="config-grid">
-            <label>
-              Risk-free rate
-              <input type="number" id="cfg-risk-free" value="0.03" step="0.001" min="0" max="0.2" />
-            </label>
-            <label>
-              Risk-free source
-              <select id="cfg-risk-free-source">
-                <option value="constant" selected>Constant</option>
-                <option value="ticker">Ticker average</option>
-              </select>
-            </label>
-            <label>
-              Risk-free ticker
-              <input type="text" id="cfg-risk-free-ticker" value="^IRX" />
-            </label>
-            <label>
-              Benchmark ticker
-              <input type="text" id="cfg-benchmark" value="SPY" />
-            </label>
-            <label>
-              Beta lookback (days)
-              <input type="number" id="cfg-beta-lookback" value="365" min="30" max="1825" />
-            </label>
-          </div>
-        </div>
-      </aside>
-      <div class="main-column">
-        <section class="status-banner" id="global-status">
+    </aside>
+    <div class="main-column">
+      <section class="status-banner" id="global-status">
         <div class="status-title" id="status-title">Idle</div>
         <div class="status-subtitle" id="status-subtitle">Ready for analysis.</div>
         <div class="status-bar"><span id="status-progress"></span></div>
@@ -127,6 +140,7 @@
       <div class="analysis-tabs">
         <button class="tab-button active" data-tab="stock">Stock</button>
         <button class="tab-button" data-tab="portfolio">Portfolio</button>
+        <button class="tab-button" data-tab="compare">Compare</button>
       </div>
       <div class="section-head stock-head" data-section="stock">
         <div>
@@ -146,13 +160,7 @@
         <form id="analyze-form" class="portfolio-form stock-form" autocomplete="off">
           <div class="portfolio-input">
             <label for="ticker-input">Stock ticker</label>
-            <input
-              id="ticker-input"
-              type="text"
-              placeholder="AAPL"
-              aria-label="Enter ticker"
-              required
-            />
+            <input id="ticker-input" type="text" placeholder="AAPL" aria-label="Enter ticker" required />
           </div>
           <button type="submit">Analyze stock</button>
         </form>
@@ -199,46 +207,79 @@
         <form id="portfolio-form" class="portfolio-form" autocomplete="off">
           <div class="portfolio-input">
             <label for="portfolio-holdings">Holdings (ticker:weight)</label>
-            <textarea
-              id="portfolio-holdings"
-              placeholder="AAPL:40, MSFT:30, NVDA:20, CASH:10"
-              rows="3"
-              required
-            ></textarea>
+            <textarea id="portfolio-holdings" placeholder="AAPL:40, MSFT:30, NVDA:20, CASH:10" rows="3"
+              required></textarea>
           </div>
           <button type="submit">Analyze portfolio</button>
         </form>
 
-        <div class="grid stats-grid">
+        <div class="grid stats-grid" id="portfolio-results-row">
           <div class="card">
-            <h3>Your holdings</h3>
-            <div class="card-body" id="portfolio-holdings-list"></div>
+            <h3>Current portfolio</h3>
+            <div class="card-body" id="portfolio-stats-a"></div>
           </div>
           <div class="card">
-            <h3>Suggested holdings</h3>
-            <div class="card-body" id="portfolio-suggested-holdings"></div>
-          </div>
-        </div>
-
-        <div class="grid stats-grid">
-          <div class="card">
-            <h3>Your portfolio stats</h3>
-            <div class="card-body" id="portfolio-stats"></div>
-          </div>
-          <div class="card">
-            <h3>Suggested portfolio stats</h3>
-            <div class="card-body" id="portfolio-suggested-stats"></div>
+            <h3>Suggested alternative</h3>
+            <div class="card-body" id="portfolio-stats-b"></div>
           </div>
         </div>
 
         <div class="card wide" id="portfolio-insights-card">
-          <h3>Portfolio insights</h3>
-          <div class="card-body" id="portfolio-insights"></div>
+          <h3>Strategic analysis</h3>
+          <div class="card-body" id="portfolio-ai-content"></div>
         </div>
       </section>
-      </div>
-    </main>
 
-    <script src="/static/app.js"></script>
-  </body>
+      <div class="section-head compare-head" data-section="compare">
+        <div>
+          <h2>Portfolio comparison</h2>
+          <p>Detailed head-to-head analysis of two strategies.</p>
+        </div>
+        <span class="section-pill">Comparison</span>
+      </div>
+      <section class="panel" id="compare-panel" data-section="compare">
+        <div class="panel-header">
+          <div>
+            <h2 id="compare-title">Strategy comparison</h2>
+            <p id="compare-subtitle">Evaluate two portfolios side-by-side.</p>
+          </div>
+          <div class="status" id="compare-status">Idle</div>
+        </div>
+
+        <form id="compare-form" class="portfolio-form compare-form" autocomplete="off">
+          <div class="compare-inputs-grid">
+            <div class="portfolio-input">
+              <label for="compare-a">Portfolio A (ticker:weight)</label>
+              <textarea id="compare-a" placeholder="AAPL:60, MSFT:40" rows="3" required></textarea>
+            </div>
+            <div class="portfolio-input">
+              <label for="compare-b">Portfolio B (ticker:weight)</label>
+              <textarea id="compare-b" placeholder="SPY:100" rows="3" required></textarea>
+            </div>
+          </div>
+          <button type="submit">Compare portfolios</button>
+        </form>
+
+        <div class="grid stats-grid" id="compare-stats-row">
+          <div class="card">
+            <h3>Portfolio A stats</h3>
+            <div class="card-body" id="compare-stats-a"></div>
+          </div>
+          <div class="card">
+            <h3>Portfolio B stats</h3>
+            <div class="card-body" id="compare-stats-b"></div>
+          </div>
+        </div>
+
+        <div class="card wide" id="compare-ai-card">
+          <h3>Strategic comparison</h3>
+          <div class="card-body" id="compare-ai-content"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+
 </html>
