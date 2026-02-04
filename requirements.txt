@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+yfinance
+pandas
+numpy
+requests
+jinja2
+python-dotenv
+openai-agents
+cachetools
