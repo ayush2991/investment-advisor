@@ -35,7 +35,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("atlas.ai")
 
-INFO_CACHE = TTLCache(maxsize=256, ttl=1800)
+INFO_CACHE = TTLCache(maxsize=256, ttl=2100)
 HISTORY_CACHE = TTLCache(maxsize=256, ttl=1800)
 NEWS_CACHE = TTLCache(maxsize=256, ttl=900)
 AI_CACHE = TTLCache(maxsize=256, ttl=1800)
