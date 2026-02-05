@@ -30,7 +30,9 @@ app = FastAPI(title=APP_NAME)
 load_dotenv()
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
-logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logging.basicConfig(
+    level=LOG_LEVEL, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+)
 logger = logging.getLogger("atlas.ai")
 
 INFO_CACHE = TTLCache(maxsize=256, ttl=1800)
@@ -39,8 +41,11 @@ NEWS_CACHE = TTLCache(maxsize=256, ttl=900)
 AI_CACHE = TTLCache(maxsize=256, ttl=1800)
 PORTFOLIO_CACHE = TTLCache(maxsize=256, ttl=1800)
 
-templates = Jinja2Templates(directory="/Users/aayushagarwal/projects/investment-advisor/app/templates")
-app.mount("/static", StaticFiles(directory="/Users/aayushagarwal/projects/investment-advisor/app/static"), name="static")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+app.mount(
+    "/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static"
+)
 
 
 def _safe_float(value):
@@ -176,7 +181,9 @@ def _portfolio_drawdown(portfolio_values: pd.Series) -> float | None:
     return float(drawdown.min())
 
 
-def _annualized_return(returns: pd.Series, trading_days: int, method: str) -> float | None:
+def _annualized_return(
+    returns: pd.Series, trading_days: int, method: str
+) -> float | None:
     if returns is None or returns.empty:
         return None
     if method == "log":
@@ -211,12 +218,12 @@ def _series_returns(prices: pd.Series, method: str) -> pd.Series:
     return prices.pct_change().dropna()
 
 
-def _sharpe_ratio(annual_return: float | None, annual_volatility: float | None, risk_free: float) -> float | None:
+def _sharpe_ratio(
+    annual_return: float | None, annual_volatility: float | None, risk_free: float
+) -> float | None:
     if annual_return is None or annual_volatility in (None, 0):
         return None
     return (annual_return - risk_free) / annual_volatility
-
-
 
 
 class FundamentalsBrief(BaseModel):
@@ -415,7 +422,9 @@ def _build_comparison_agent(model: str | None = None) -> Agent:
     )
 
 
-async def _openai_stock_brief(info: dict, technicals: dict, news: list[dict], model: str | None = None) -> dict:
+async def _openai_stock_brief(
+    info: dict, technicals: dict, news: list[dict], model: str | None = None
+) -> dict:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         return {
@@ -446,20 +455,26 @@ async def _openai_stock_brief(info: dict, technicals: dict, news: list[dict], mo
         news_agent = _build_news_agent(model)
         synthesis_agent = _build_synthesis_agent(model)
 
-        logger.debug("fundamentals input: %s", json.dumps({"ticker_info": sanitized_info}, default=str))
+        logger.debug(
+            "fundamentals input: %s",
+            json.dumps({"ticker_info": sanitized_info}, default=str),
+        )
         fundamentals_result = await Runner.run(
             fundamentals_agent, json.dumps({"ticker_info": sanitized_info})
         )
         logger.debug("fundamentals output: %s", _safe_dump(fundamentals_result))
-        logger.debug("technicals input: %s", json.dumps({"technicals": sanitized_technicals}, default=str))
+        logger.debug(
+            "technicals input: %s",
+            json.dumps({"technicals": sanitized_technicals}, default=str),
+        )
         technicals_result = await Runner.run(
             technicals_agent, json.dumps({"technicals": sanitized_technicals})
         )
         logger.debug("technicals output: %s", _safe_dump(technicals_result))
-        logger.debug("news input: %s", json.dumps({"news": sanitized_news}, default=str))
-        news_result = await Runner.run(
-            news_agent, json.dumps({"news": sanitized_news})
+        logger.debug(
+            "news input: %s", json.dumps({"news": sanitized_news}, default=str)
         )
+        news_result = await Runner.run(news_agent, json.dumps({"news": sanitized_news}))
         logger.debug("news output: %s", _safe_dump(news_result))
 
         synthesis_payload = {
@@ -532,7 +547,9 @@ async def _openai_comparison_brief(payload: dict, model: str | None = None) -> d
             "message": "Set OPENAI_API_KEY to enable AI-generated analysis.",
         }
 
-    cache_key = _hash_payload({**payload, "type": "comparison", "model": _model_name(model)})
+    cache_key = _hash_payload(
+        {**payload, "type": "comparison", "model": _model_name(model)}
+    )
     cached = _cache_get(AI_CACHE, cache_key)
     if cached is not None:
         logger.debug("comparison ai cache hit for %s", cache_key)
@@ -556,7 +573,9 @@ async def _openai_comparison_brief(payload: dict, model: str | None = None) -> d
     return parsed
 
 
-async def _fetch_news(ticker: str, company_name: str | None, model: str | None = None) -> list[dict]:
+async def _fetch_news(
+    ticker: str, company_name: str | None, model: str | None = None
+) -> list[dict]:
     api_key = os.getenv("TAVILY_API_KEY")
     if not api_key:
         logger.warning("TAVILY_API_KEY not set, news fetch will be skipped.")
@@ -588,8 +607,11 @@ async def _fetch_news(ticker: str, company_name: str | None, model: str | None =
     # 2. Run searches using Tavily
     for query in queries[:2]:  # Limit to 2 queries to be efficient
         try:
+
             def _post():
-                three_days_ago = (datetime.utcnow() - timedelta(days=3)).strftime("%Y-%m-%d")
+                three_days_ago = (datetime.utcnow() - timedelta(days=3)).strftime(
+                    "%Y-%m-%d"
+                )
                 return requests.post(
                     TAVILY_ENDPOINT,
                     json={
@@ -615,7 +637,9 @@ async def _fetch_news(ticker: str, company_name: str | None, model: str | None =
                             "title": item.get("title"),
                             "url": url,
                             "description": item.get("content"),
-                            "age": item.get("published_date"), # Tavily returns ISO dates for news
+                            "age": item.get(
+                                "published_date"
+                            ),  # Tavily returns ISO dates for news
                             "domain": _get_domain(url),
                         }
                     )
@@ -630,7 +654,11 @@ async def _fetch_news(ticker: str, company_name: str | None, model: str | None =
     try:
         selection_input = json.dumps(
             [
-                {"index": i, "title": r["title"], "description": (r["description"] or "")[:200]}
+                {
+                    "index": i,
+                    "title": r["title"],
+                    "description": (r["description"] or "")[:200],
+                }
                 for i, r in enumerate(all_results)
             ]
         )
@@ -714,7 +742,11 @@ def _portfolio_stats(
 
     if isinstance(price_data.columns, pd.MultiIndex):
         close_prices = pd.DataFrame(
-            {ticker: price_data[ticker]["Close"] for ticker in tickers if ticker in price_data}
+            {
+                ticker: price_data[ticker]["Close"]
+                for ticker in tickers
+                if ticker in price_data
+            }
         )
     else:
         close_prices = price_data["Close"].to_frame()
@@ -725,7 +757,9 @@ def _portfolio_stats(
 
     weights = np.array([h.weight for h in holdings], dtype=float)
     weight_map = {h.ticker: h.weight for h in holdings}
-    aligned_weights = np.array([weight_map.get(ticker, 0) for ticker in close_prices.columns], dtype=float)
+    aligned_weights = np.array(
+        [weight_map.get(ticker, 0) for ticker in close_prices.columns], dtype=float
+    )
 
     portfolio_returns = (returns * aligned_weights).sum(axis=1)
     if return_method == "log":
@@ -739,8 +773,12 @@ def _portfolio_stats(
         else None
     )
     stats = {
-        "annualized_return": _annualized_return(portfolio_returns, trading_days, return_method),
-        "annualized_volatility": _annualized_volatility(portfolio_returns, trading_days),
+        "annualized_return": _annualized_return(
+            portfolio_returns, trading_days, return_method
+        ),
+        "annualized_volatility": _annualized_volatility(
+            portfolio_returns, trading_days
+        ),
         "max_drawdown": _calc_max_drawdown(portfolio_values, drawdown_window),
     }
 
@@ -832,6 +870,7 @@ def _compare_portfolios(user_stats: dict, suggested_stats: dict) -> str:
         return ""
     u = user_stats.get("stats", {})
     s = suggested_stats.get("stats", {})
+
     def _delta(a, b):
         if a is None or b is None:
             return None
@@ -926,7 +965,9 @@ async def analyze_stock(
     end_date = datetime.utcnow().date()
     start_date = end_date - timedelta(days=lookback_days)
 
-    history_cache_key = f"hist:{ticker}:{start_date}:{end_date}:{price_interval}:{auto_adjust}"
+    history_cache_key = (
+        f"hist:{ticker}:{start_date}:{end_date}:{price_interval}:{auto_adjust}"
+    )
     cached_history = _cache_get(HISTORY_CACHE, history_cache_key)
     if cached_history is not None:
         logger.debug("history cache hit for %s", history_cache_key)
@@ -1148,14 +1189,18 @@ async def analyze_portfolio(request: PortfolioRequest):
     suggested_stats = None
     suggested_best = None
     suggested_candidates = []
-    suggestions = ai_summary.get("suggested_portfolios") if isinstance(ai_summary, dict) else None
+    suggestions = (
+        ai_summary.get("suggested_portfolios") if isinstance(ai_summary, dict) else None
+    )
     if suggestions and isinstance(suggestions, list):
         for idx, suggestion in enumerate(suggestions):
             try:
                 inputs = [
-                    PortfolioInput(ticker=item["ticker"], weight=item["weight"])
-                    if isinstance(item, dict)
-                    else item
+                    (
+                        PortfolioInput(ticker=item["ticker"], weight=item["weight"])
+                        if isinstance(item, dict)
+                        else item
+                    )
                     for item in suggestion
                 ]
                 inputs = _normalize_weights(inputs)
@@ -1198,7 +1243,9 @@ async def analyze_portfolio(request: PortfolioRequest):
         "sector_allocation": portfolio_data["sector_allocation"],
         "stats": portfolio_data["stats"],
         "suggested_portfolio": suggested_stats,
-        "suggested_holdings": [h.model_dump() for h in suggested_best] if suggested_best else None,
+        "suggested_holdings": (
+            [h.model_dump() for h in suggested_best] if suggested_best else None
+        ),
         "ai_summary": ai_summary,
         "disclaimer": "This is for educational purposes only and not investment advice.",
         "assumptions": {
@@ -1239,7 +1286,11 @@ async def compare_portfolios(request: ComparisonRequest):
         raise HTTPException(status_code=400, detail="Both portfolios are required.")
 
     def _prep_holdings(h_list):
-        h = [PortfolioInput(ticker=x.ticker.upper().strip(), weight=x.weight) for x in h_list if x.ticker]
+        h = [
+            PortfolioInput(ticker=x.ticker.upper().strip(), weight=x.weight)
+            for x in h_list
+            if x.ticker
+        ]
         return _normalize_weights(h)
 
     ha = _prep_holdings(request.portfolio_a)
@@ -1250,27 +1301,42 @@ async def compare_portfolios(request: ComparisonRequest):
 
     def _get_stats(h):
         return _portfolio_stats(
-            h, start_date, end_date, request.trading_days, request.risk_free_rate,
-            request.price_interval, request.auto_adjust, "SPY", "pct", "full", 365, 365, "constant", "^IRX"
+            h,
+            start_date,
+            end_date,
+            request.trading_days,
+            request.risk_free_rate,
+            request.price_interval,
+            request.auto_adjust,
+            "SPY",
+            "pct",
+            "full",
+            365,
+            365,
+            "constant",
+            "^IRX",
         )
 
     stats_a = _get_stats(ha)
     stats_b = _get_stats(hb)
 
     if stats_a.get("error") or stats_b.get("error"):
-        raise HTTPException(status_code=404, detail=f"Error fetching data: {stats_a.get('error') or stats_b.get('error')}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Error fetching data: {stats_a.get('error') or stats_b.get('error')}",
+        )
 
     payload = {
         "portfolio_a": {
             "stats": stats_a["stats"],
             "sector_allocation": stats_a["sector_allocation"],
-            "holdings": stats_a["holdings"]
+            "holdings": stats_a["holdings"],
         },
         "portfolio_b": {
             "stats": stats_b["stats"],
             "sector_allocation": stats_b["sector_allocation"],
-            "holdings": stats_b["holdings"]
-        }
+            "holdings": stats_b["holdings"],
+        },
     }
 
     ai_comparison = await _openai_comparison_brief(payload, model=request.model)
@@ -1280,7 +1346,7 @@ async def compare_portfolios(request: ComparisonRequest):
         "portfolio_a": stats_a,
         "portfolio_b": stats_b,
         "ai_comparison": ai_comparison,
-        "disclaimer": "This is for educational purposes only and not investment advice."
+        "disclaimer": "This is for educational purposes only and not investment advice.",
     }
 
 
